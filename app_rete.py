@@ -6,6 +6,45 @@ import requests
 import streamlit as st
 from datetime import datetime
 
+# --- Roles / Autorización ---
+ADMINS = set(st.secrets.get("auth", {}).get("admins", []))
+ADMIN_PASSCODE = st.secrets.get("auth", {}).get("admin_passcode", None)
+
+# Intenta leer el email del usuario (solo disponible en Streamlit Cloud con sign-in)
+try:
+    user_email = st.experimental_user.email  # type: ignore[attr-defined]
+except Exception:
+    user_email = None
+
+# Bandera en sesión
+if "is_manager" not in st.session_state:
+    st.session_state.is_manager = (user_email in ADMINS) if user_email else False
+
+# Desbloqueo por passcode (sidebar), por si no hay email
+if not st.session_state.is_manager and ADMIN_PASSCODE:
+    with st.sidebar:
+        st.caption("🔒 Solo jefes")
+        code = st.text_input("Código de jefe", type="password", placeholder="••••••")
+        if code and code == ADMIN_PASSCODE:
+            st.session_state.is_manager = True
+            st.success("Modo jefe activado")
+
+is_manager = st.session_state.is_manager
+
+# ------------------------------
+# Encabezado
+# ------------------------------
+st.title("Calculadora de Retención UF → CLP")
+st.caption(
+    "Ingresa precio en UF, cantidad y un **monto de descuento en CLP**. "
+    "La app calcula el % equivalente, valida topes por nivel y muestra el total en CLP."
+)
+
+# 👇 Aquí pega estas dos líneas:
+role = "Jefe" if is_manager else "Agente"
+st.caption(f"👤 Sesión: {user_email or 'Usuario público'} · Rol: {role}")
+
+
 st.set_page_config(page_title="Calculadora UF→CLP", page_icon="💡", layout="centered")
 
 # ------------------------------
@@ -51,7 +90,7 @@ st.caption(
 # Configuración de niveles y topes
 # ------------------------------
 
-# Tope base por nivel (puedes ajustarlo si cambian políticas)
+# --- Config de niveles y topes ---
 TOPES_BASE = {"Nivel 1": 0.25, "Telecierre": 0.40}
 
 col_nivel, col_flash = st.columns([2, 1])
@@ -62,25 +101,40 @@ with col_nivel:
         index=0,
         horizontal=True,
     )
+
 with col_flash:
     activar_flash = st.toggle(
         "Ofertas Flash",
         value=False,
         help="Activa para ampliar topes por nivel en días especiales",
+        disabled=not is_manager,         # <- Bloquea a no-jefes
     )
 
 TOPES_ACTIVOS = TOPES_BASE.copy()
-if activar_flash:
-    st.info("Ofertas Flash activadas: ajusta los topes permitidos para cada nivel.")
-    c1, c2 = st.columns(2)
-    with c1:
-        top_n1 = st.number_input("Tope Nivel 1 (%)", min_value=0.0, max_value=80.0, value=30.0, step=1.0)
-    with c2:
-        top_tel = st.number_input("Tope Telecierre (%)", min_value=0.0, max_value=80.0, value=50.0, step=1.0)
-    TOPES_ACTIVOS["Nivel 1"] = top_n1 / 100
-    TOPES_ACTIVOS["Telecierre"] = top_tel / 100
 
-max_desc = TOPES_ACTIVOS[nivel]
+if activar_flash:
+    if is_manager:
+        st.info("Ofertas Flash activadas (modo jefe): ajusta los topes permitidos.")
+        c1, c2 = st.columns(2)
+        with c1:
+            top_n1 = st.number_input("Tope Nivel 1 (%)", min_value=0.0, max_value=80.0, value=30.0, step=1.0)
+        with c2:
+            top_tel = st.number_input("Tope Telecierre (%)", min_value=0.0, max_value=80.0, value=50.0, step=1.0)
+        TOPES_ACTIVOS["Nivel 1"] = top_n1 / 100
+        TOPES_ACTIVOS["Telecierre"] = top_tel / 100
+    else:
+        st.warning("Solo jefes pueden editar Ofertas Flash. Visualización en modo lectura.", icon="🔒")
+        # Inputs 'fantasma' sólo para mostrar valores actuales, deshabilitados:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.number_input("Tope Nivel 1 (%)", min_value=0.0, max_value=80.0,
+                            value=TOPES_ACTIVOS["Nivel 1"]*100, step=1.0, disabled=True)
+        with c2:
+            st.number_input("Tope Telecierre (%)", min_value=0.0, max_value=80.0,
+                            value=TOPES_ACTIVOS["Telecierre"]*100, step=1.0, disabled=True)
+
+max_desc = TOPES_ACTIVOS[nivel]  # <- se usa más abajo en tu cálculo
+
 
 # ------------------------------
 # UF: automática (API) o manual
@@ -207,5 +261,6 @@ st.caption(
     "Fuente UF: mindicador.cl · La app ahora usa **monto en CLP** en vez de % y valida topes por nivel (Nivel 1 = 25%, Telecierre = 40%). "
     "Con **Ofertas Flash** puedes ajustar temporalmente esos topes."
 )
+
 
 
