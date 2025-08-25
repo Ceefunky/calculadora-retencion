@@ -145,7 +145,7 @@ porcentaje_aplicado = (monto_aplicado / subtotal * 100) if subtotal > 0 else 0.0
 
 if excede_tope:
     st.error(
-        f"El monto solicitado {formato_clp(monto_descuento_ing)} excede el tope permitido para {nivel} "
+        f"El monto solicitado {formato_clp(monto_descuento_ing)}  excede el tope permitido para {nivel} "
         f"(máx {int(max_desc*100)}% = {formato_clp(monto_tope)}). Se aplicará el tope.",
         icon="⛔",
     )
@@ -207,4 +207,5 @@ st.caption(
     "Fuente UF: mindicador.cl · La app ahora usa **monto en CLP** en vez de % y valida topes por nivel (Nivel 1 = 25%, Telecierre = 40%). "
     "Con **Ofertas Flash** puedes ajustar temporalmente esos topes."
 )
+
 
