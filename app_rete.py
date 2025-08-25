@@ -15,12 +15,7 @@ def get_user_email():
         # API nueva
         if getattr(st, "user", None) and getattr(st.user, "email", None):
             return st.user.email
-        # Fallback a la API antigua (por si corres local con versión vieja)
-        if hasattr(st, "experimental_user") and st.experimental_user is not None:
-            return getattr(st.experimental_user, "email", None)
-    except Exception:
-        pass
-    return None
+
 
 user_email = get_user_email()
 
@@ -259,6 +254,7 @@ st.caption(
     "Fuente UF: mindicador.cl · La app ahora usa **monto en CLP** en vez de % y valida topes por nivel (Nivel 1 = 25%, Telecierre = 40%). "
     "Con **Ofertas Flash** puedes ajustar temporalmente esos topes."
 )
+
 
 
 
