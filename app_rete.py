@@ -30,8 +30,8 @@ if "is_manager" not in st.session_state:
 # Desbloqueo por passcode en la barra lateral (opcional)
 if not st.session_state.is_manager and ADMIN_PASSCODE:
     with st.sidebar:
-        st.caption("🔒 Solo jefes")
-        code = st.text_input("Código de jefe", type="password", placeholder="••••••")
+        st.caption("🔒 Autorización ofertas Flash")
+        code = st.text_input("Código de Jefatura", type="password", placeholder="••••••")
         if code and code == ADMIN_PASSCODE:
             st.session_state.is_manager = True
             st.success("Modo jefe activado")
@@ -260,6 +260,7 @@ st.caption(
     "Fuente UF: mindicador.cl · La app ahora usa **monto en CLP** en vez de % y valida topes por nivel (Nivel 1 = 25%, Telecierre = 40%). "
     "Con **Ofertas Flash** puedes ajustar temporalmente esos topes."
 )
+
 
 
 
