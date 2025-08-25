@@ -77,16 +77,6 @@ def obtener_uf_hoy() -> tuple[float, str]:
     return valor, f"mindicador.cl (UF del {fecha})"
 
 # ------------------------------
-# Encabezado
-# ------------------------------
-
-st.title("Calculadora de Retención UF → CLP")
-st.caption(
-    "Ingresa precio en UF, cantidad y un **monto de descuento en CLP**. "
-    "La app calcula el % equivalente, valida topes por nivel y muestra el total en CLP."
-)
-
-# ------------------------------
 # Configuración de niveles y topes
 # ------------------------------
 
@@ -261,6 +251,7 @@ st.caption(
     "Fuente UF: mindicador.cl · La app ahora usa **monto en CLP** en vez de % y valida topes por nivel (Nivel 1 = 25%, Telecierre = 40%). "
     "Con **Ofertas Flash** puedes ajustar temporalmente esos topes."
 )
+
 
 
 
