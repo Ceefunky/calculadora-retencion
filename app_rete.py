@@ -170,3 +170,4 @@ with st.expander("Opciones avanzadas"):
 
 st.caption("Fuente UF: mindicador.cl · La app aplica validaciones de tope: Nivel 1 = 25%, Telecierre = 40%.")
 
+
