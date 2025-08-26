@@ -188,7 +188,7 @@ if is_manager:
             st.code(f"?flash={tok}", language="text")
             st.caption(
                 "Copia la URL pública de tu app y agrega ese parámetro. "
-                "Ej: https://tuapp.streamlit.app **?flash=...**. "
+                "Ej: https://calculadora-2025.streamlit.app **?flash=...**. "
                 "Si ya tienes parámetros, añade **&flash=...**"
             )
 
@@ -314,6 +314,7 @@ st.caption(
     "Fuente UF: mindicador.cl · La app usa **monto en CLP** (con % equivalente) y valida topes por nivel "
     "(Nivel 1 = 25%, Telecierre = 40%). Con **Ofertas Flash** temporales puedes ajustar esos topes."
 )
+
 
 
 
