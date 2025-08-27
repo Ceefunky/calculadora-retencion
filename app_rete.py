@@ -19,6 +19,21 @@ def formato_clp(valor: float) -> str:
     s = f"{entero:,}".replace(",", ".")
     return f"$ {s}"
 
+def parse_num(s, default=0.0) -> float:
+    """
+    Convierte strings con ',' o '.' a float.
+    Acepta miles con punto (p.ej. '1.234,56').
+    """
+    try:
+        if isinstance(s, (int, float)):
+            return float(s)
+        s = str(s).strip()
+        # elimina separador de miles '.' y usa '.' como decimal
+        s = s.replace(".", "").replace(",", ".")
+        return float(s)
+    except Exception:
+        return float(default)
+
 @st.cache_data(ttl=60 * 60)
 def obtener_uf_hoy() -> tuple[float, str]:
     """
@@ -189,53 +204,57 @@ if is_manager:
             st.code(f"?flash={tok}", language="text")
             st.caption(
                 "Copia la URL pública de tu app y agrega ese parámetro. "
-                "Ej: https://calculadora-2025.streamlit.app **?flash=...**. "
-                "Si ya tienes parámetros, añade **&flash=...**"
+                "Ej: https://tuapp.streamlit.app ?flash=...  "
+                "Si ya tienes parámetros, añade &flash=..."
             )
 
 max_desc = TOPES_ACTIVOS[nivel]
 
 # ------------------------------
-# UF y cuota SIEMPRE editables (🆕 desbloqueado)
+# UF SIEMPRE editable (se precarga desde API)
 # ------------------------------
-# Intentamos obtener UF; si falla, usamos un valor sugerido y permitimos editar
 try:
     uf_api, fuente = obtener_uf_hoy()
 except Exception:
     uf_api, fuente = 39315.0, "UF manual (API no disponible)"
 
-col_api, col_manual = st.columns([2, 1])
+col_api, _ = st.columns([2, 1])
 with col_api:
-    uf_valor = st.number_input(
+    uf_valor_txt = st.text_input(
         "Valor de 1 UF en CLP (editable)",
-        min_value=1.0,
-        value=float(uf_api),
-        step=100.0,
-        help=f"Fuente sugerida: {fuente}. Puedes modificarla."
+        value=f"{int(round(uf_api)):n}".replace(",", "."),
+        help=f"Fuente sugerida: {fuente}. Puedes modificarla libremente."
     )
-with col_manual:
-    st.caption("Puedes editar libremente la UF y la cuota; no hay bloqueo.")
 
+uf_valor = parse_num(uf_valor_txt, uf_api)
 st.info(f"Valor UF usado: **{formato_clp(uf_valor)}** · Fuente: {fuente}")
 
 # ------------------------------
-# Entradas principales (monto en CLP en vez de %)
+# Entradas principales (abiertas)
 # ------------------------------
 col1, col2 = st.columns(2)
+
 with col1:
-    precio_uf = st.number_input("Valor cuota / Precio unitario (UF)", min_value=0.0, value=1.42, step=0.01)
-    cantidad = st.number_input("Cantidad", min_value=1, value=1, step=1)
+    precio_uf_txt = st.text_input("Valor cuota / Precio unitario (UF)", value="1,40")
 with col2:
-    monto_descuento_ing = st.number_input(
+    monto_descuento_txt = st.text_input(
         "Monto de descuento solicitado (CLP)",
-        min_value=0.0,
-        value=8000.0,
-        step=100.0,
-        help=f"Tope por nivel: {int(max_desc*100)}% del subtotal (incl. IVA) (cuota×cantidad con IVA)",
+        value="8000",
+        help=f"Tope por nivel: {int(max_desc*100)}% del subtotal (incl. IVA)"
     )
 
+cant_txt = st.text_input("Cantidad", value="1")
+
+# Parseo seguro
+precio_uf = parse_num(precio_uf_txt, 0.0)
+monto_descuento_ing = parse_num(monto_descuento_txt, 0.0)
+try:
+    cantidad = max(int(parse_num(cant_txt, 1)), 1)
+except Exception:
+    cantidad = 1
+
 # ------------------------------
-# Cálculo (🆕 Subtotal incluye IVA)
+# Cálculo (Subtotal incluye IVA; descuento SIN IVA)
 # ------------------------------
 precio_unitario_clp_neto = precio_uf * uf_valor      # valor cuota en CLP (sin IVA)
 neto = precio_unitario_clp_neto * cantidad           # total neto sin IVA
@@ -259,21 +278,27 @@ if excede_tope:
     )
 
 # Totales (Total con IVA porque el subtotal ya lo incluye)
-DescuentoCLP = monto_aplicado
+DescuentoCLP = monto_aplicado                      # descuento sin IVA
 TotalCLP = max(subtotal - DescuentoCLP, 0)
 
 # ------------------------------
 # Resultados
 # ------------------------------
-m1, m2, m3 = st.columns(3)
-with m1:
+r1c1, r1c2, r1c3 = st.columns(3)
+with r1c1:
     st.metric("Subtotal (incl. IVA 19%)", formato_clp(subtotal))
-with m2:
+with r1c2:
     st.metric("IVA incluido (19%)", formato_clp(iva_incluido))
-with m3:
-    st.metric("Descuento aplicado", f"{formato_clp(DescuentoCLP)}", delta=f"{porcentaje_aplicado:.1f}% del subtotal")
+with r1c3:
+    st.metric("Descuento solicitado", formato_clp(monto_descuento_ing), delta=f"{porcentaje_solicitado:.1f}% del subtotal")
 
-st.metric("Total a pagar (incl. IVA)", formato_clp(TotalCLP))
+r2c1, r2c2, r2c3 = st.columns(3)
+with r2c1:
+    st.metric("Descuento aplicado", formato_clp(DescuentoCLP), delta=f"{porcentaje_aplicado:.1f}% del subtotal")
+with r2c2:
+    st.empty()
+with r2c3:
+    st.metric("Total a pagar (incl. IVA)", formato_clp(TotalCLP))
 
 st.divider()
 st.subheader("Detalle")
@@ -298,7 +323,6 @@ with st.expander("Opciones avanzadas"):
     st.text_area(
         "Resumen",
         value=(
-            f"Nivel: {nivel}\n"
             f"UF usada (editable): {uf_valor:.2f} CLP\n"
             f"Precio unitario: {precio_uf:.2f} UF ({formato_clp(precio_unitario_clp_neto)} neto)\n"
             f"Cantidad: {int(cantidad)}\n"
@@ -308,12 +332,13 @@ with st.expander("Opciones avanzadas"):
             f"Descuento aplicado: {formato_clp(DescuentoCLP)} ({porcentaje_aplicado:.1f}% del subtotal)\n"
             f"Total a pagar (incl. IVA): {formato_clp(TotalCLP)}\n"
         ),
-        height=180,
+        height=200,
     )
 
 st.caption(
     "Los topes de descuento se calculan sobre el **subtotal con IVA**. "
-    "La UF es editable (se precarga desde la API si está disponible)."
+    "Las entradas son abiertas: puedes escribir con coma/punto y miles. "
+    "La UF se precarga desde la API pero puedes modificarla."
 )
 
 
