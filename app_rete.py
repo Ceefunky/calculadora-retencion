@@ -258,7 +258,7 @@ except Exception:
 # ------------------------------
 precio_unitario_clp_neto = precio_uf * uf_valor      # valor cuota en CLP (sin IVA)
 neto = precio_unitario_clp_neto * cantidad           # total neto sin IVA
-iva_incluido = neto * IVA_RATE                        # IVA 19% sobre neto
+#iva_incluido = neto * IVA_RATE                        # IVA 19% sobre neto
 subtotal = neto + iva_incluido                        # 🔹 Subtotal YA incluye IVA
 
 # % solicitado por referencia (antes de aplicar tope) – respecto del subtotal con IVA
@@ -340,6 +340,7 @@ st.caption(
     "Las entradas son abiertas: puedes escribir con coma/punto y miles. "
     "La UF se precarga desde la API pero puedes modificarla."
 )
+
 
 
 
