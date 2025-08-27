@@ -141,6 +141,7 @@ st.caption(
 st.caption(f"👤 Sesión: {user_email or 'Usuario público'} · Rol: {'Jefe' if is_manager else 'Agente'}")
 
 # --- Config de niveles y topes ---
+IVA_RATE = 0.19  # 19% Chile
 TOPES_BASE = {"Nivel 1": 0.25, "Telecierre": 0.40}
 TOPES_ACTIVOS = TOPES_BASE.copy()
 
@@ -262,6 +263,10 @@ if excede_tope:
 # Totales
 DescuentoCLP = monto_aplicado
 TotalCLP = max(subtotal - DescuentoCLP, 0)
+# IVA
+iva_subtotal = subtotal * IVA_RATE              # IVA asociado al subtotal (referencial)
+iva_total = TotalCLP * IVA_RATE                 # IVA sobre el total tras descuento (habitual)
+TotalCLP_IVA = TotalCLP + iva_total            # Total final con IVA
 
 # ------------------------------
 # Resultados
@@ -275,6 +280,16 @@ with m3:
     st.metric("Descuento aplicado", f"{formato_clp(DescuentoCLP)}", delta=f"{porcentaje_aplicado:.1f}% del total")
 
 st.metric("Total a pagar", formato_clp(TotalCLP))
+
+# ---- IVA y total con IVA ----
+i1, i2, i3 = st.columns(3)
+with i1:
+    st.metric(f"IVA sobre Subtotal ({int(IVA_RATE*100)}%)", formato_clp(iva_subtotal))
+with i2:
+    st.metric(f"IVA sobre Total ({int(IVA_RATE*100)}%)", formato_clp(iva_total))
+with i3:
+    st.metric("Total con IVA", formato_clp(TotalCLP_IVA))
+
 
 st.divider()
 st.subheader("Detalle")
@@ -294,6 +309,8 @@ with st.expander("Opciones avanzadas"):
     if redondear_mil:
         TotalCLP = round(TotalCLP / 1000) * 1000
         st.write(f"Total redondeado: **{formato_clp(TotalCLP)}**")
+        st.write(f"IVA (19%) sobre total aplicado: **{formato_clp(iva_total)}** · Total con IVA: **{formato_clp(TotalCLP_IVA)}**")
+
 
     st.text_area(
         "Resumen",
@@ -306,6 +323,8 @@ with st.expander("Opciones avanzadas"):
             f"Descuento solicitado: {formato_clp(monto_descuento_ing)} ({porcentaje_solicitado:.1f}% del total)\n"
             f"Descuento aplicado: {formato_clp(DescuentoCLP)} ({porcentaje_aplicado:.1f}% del total)\n"
             f"Total: {formato_clp(TotalCLP)}\n"
+            f"IVA (sobre subtotal): {formato_clp(iva_subtotal)}\n"
+            f"Total con IVA: {formato_clp(TotalCLP_IVA)}\n"
         ),
         height=160,
     )
@@ -314,6 +333,7 @@ st.caption(
     "Fuente UF: mindicador.cl · La app usa **monto en CLP** (con % equivalente) y valida topes por nivel "
     "(Nivel 1 = 25%, Telecierre = 40%). Con **Ofertas Flash** temporales puedes ajustar esos topes."
 )
+
 
 
 
