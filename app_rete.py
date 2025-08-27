@@ -184,10 +184,137 @@ if is_manager:
         horas = st.number_input("Duración (horas)", 1, 24, 4)
         n1 = st.number_input("Tope Nivel 1 (Flash %)", 0.0, 80.0, 30.0, 1.0)
         tel = st.number_input("Tope Telecierre (Flash %)", 0.0, 80.0, 50.0, 1.0)
-        if st.button("Generar enl
+        if st.button("Generar enlace"):
+            tok = make_flash_token(int(horas), n1, tel)
+            st.code(f"?flash={tok}", language="text")
+            st.caption(
+                "Copia la URL pública de tu app y agrega ese parámetro. "
+                "Ej: https://calculadora-2025.streamlit.app **?flash=...**. "
+                "Si ya tienes parámetros, añade **&flash=...**"
+            )
 
+max_desc = TOPES_ACTIVOS[nivel]
 
+# ------------------------------
+# UF y cuota SIEMPRE editables (🆕 desbloqueado)
+# ------------------------------
+# Intentamos obtener UF; si falla, usamos un valor sugerido y permitimos editar
+try:
+    uf_api, fuente = obtener_uf_hoy()
+except Exception:
+    uf_api, fuente = 39315.0, "UF manual (API no disponible)"
 
+col_api, col_manual = st.columns([2, 1])
+with col_api:
+    uf_valor = st.number_input(
+        "Valor de 1 UF en CLP (editable)",
+        min_value=1.0,
+        value=float(uf_api),
+        step=100.0,
+        help=f"Fuente sugerida: {fuente}. Puedes modificarla."
+    )
+with col_manual:
+    st.caption("Puedes editar libremente la UF y la cuota; no hay bloqueo.")
+
+st.info(f"Valor UF usado: **{formato_clp(uf_valor)}** · Fuente: {fuente}")
+
+# ------------------------------
+# Entradas principales (monto en CLP en vez de %)
+# ------------------------------
+col1, col2 = st.columns(2)
+with col1:
+    precio_uf = st.number_input("Valor cuota / Precio unitario (UF)", min_value=0.0, value=1.42, step=0.01)
+    cantidad = st.number_input("Cantidad", min_value=1, value=1, step=1)
+with col2:
+    monto_descuento_ing = st.number_input(
+        "Monto de descuento solicitado (CLP)",
+        min_value=0.0,
+        value=8000.0,
+        step=100.0,
+        help=f"Tope por nivel: {int(max_desc*100)}% del subtotal (incl. IVA) (cuota×cantidad con IVA)",
+    )
+
+# ------------------------------
+# Cálculo (🆕 Subtotal incluye IVA)
+# ------------------------------
+precio_unitario_clp_neto = precio_uf * uf_valor      # valor cuota en CLP (sin IVA)
+neto = precio_unitario_clp_neto * cantidad           # total neto sin IVA
+iva_incluido = neto * IVA_RATE                        # IVA 19% sobre neto
+subtotal = neto + iva_incluido                        # 🔹 Subtotal YA incluye IVA
+
+# % solicitado por referencia (antes de aplicar tope) – respecto del subtotal con IVA
+porcentaje_solicitado = (monto_descuento_ing / subtotal * 100) if subtotal > 0 else 0.0
+
+# Aplicar tope por nivel (porcentaje del subtotal con IVA)
+monto_tope = subtotal * max_desc
+excede_tope = monto_descuento_ing > monto_tope
+monto_aplicado = min(monto_descuento_ing, monto_tope)
+porcentaje_aplicado = (monto_aplicado / subtotal * 100) if subtotal > 0 else 0.0
+
+if excede_tope:
+    st.error(
+        f"El monto solicitado {formato_clp(monto_descuento_ing)} excede el tope permitido para {nivel} "
+        f"(máx {int(max_desc*100)}% = {formato_clp(monto_tope)} del subtotal con IVA). Se aplicará el tope.",
+        icon="⛔",
+    )
+
+# Totales (Total con IVA porque el subtotal ya lo incluye)
+DescuentoCLP = monto_aplicado
+TotalCLP = max(subtotal - DescuentoCLP, 0)
+
+# ------------------------------
+# Resultados
+# ------------------------------
+m1, m2, m3 = st.columns(3)
+with m1:
+    st.metric("Subtotal (incl. IVA 19%)", formato_clp(subtotal))
+with m2:
+    st.metric("IVA incluido (19%)", formato_clp(iva_incluido))
+with m3:
+    st.metric("Descuento aplicado", f"{formato_clp(DescuentoCLP)}", delta=f"{porcentaje_aplicado:.1f}% del subtotal")
+
+st.metric("Total a pagar (incl. IVA)", formato_clp(TotalCLP))
+
+st.divider()
+st.subheader("Detalle")
+st.write(
+    f"Precio unitario: **{precio_uf:.2f} UF** → **{formato_clp(precio_unitario_clp_neto)}** (neto) | "
+    f"Cantidad: **{int(cantidad)}** | IVA incluido: **{formato_clp(iva_incluido)}**"
+)
+st.write(
+    f"Nivel: **{nivel}** · Tope permitido sobre subtotal (incl. IVA): **{int(max_desc*100)}%** "
+    f"{'(Flash activo)' if (activar_flash and is_manager) or flash_active() else ''}"
+)
+
+# ------------------------------
+# Opcional: redondeo y exportación
+# ------------------------------
+with st.expander("Opciones avanzadas"):
+    redondear_mil = st.toggle("Redondear total al millar más cercano", value=False)
+    if redondear_mil:
+        TotalCLP = round(TotalCLP / 1000) * 1000
+        st.write(f"Total redondeado: **{formato_clp(TotalCLP)}**")
+
+    st.text_area(
+        "Resumen",
+        value=(
+            f"Nivel: {nivel}\n"
+            f"UF usada (editable): {uf_valor:.2f} CLP\n"
+            f"Precio unitario: {precio_uf:.2f} UF ({formato_clp(precio_unitario_clp_neto)} neto)\n"
+            f"Cantidad: {int(cantidad)}\n"
+            f"IVA incluido (19%): {formato_clp(iva_incluido)}\n"
+            f"Subtotal (incl. IVA): {formato_clp(subtotal)}\n"
+            f"Descuento solicitado: {formato_clp(monto_descuento_ing)} ({porcentaje_solicitado:.1f}% del subtotal)\n"
+            f"Descuento aplicado: {formato_clp(DescuentoCLP)} ({porcentaje_aplicado:.1f}% del subtotal)\n"
+            f"Total a pagar (incl. IVA): {formato_clp(TotalCLP)}\n"
+        ),
+        height=180,
+    )
+
+st.caption(
+    "Los topes de descuento se calculan sobre el **subtotal con IVA**. "
+    "La UF es editable (se precarga desde la API si está disponible)."
+)
 
 
 
