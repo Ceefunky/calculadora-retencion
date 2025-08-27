@@ -258,7 +258,7 @@ except Exception:
 # ------------------------------
 precio_unitario_clp_neto = precio_uf * uf_valor      # valor cuota en CLP (sin IVA)
 neto = precio_unitario_clp_neto * cantidad           # total neto sin IVA
-#iva_incluido = neto * IVA_RATE                        # IVA 19% sobre neto
+iva_incluido = neto * IVA_RATE                        # IVA 19% sobre neto
 subtotal = neto + iva_incluido                        # 🔹 Subtotal YA incluye IVA
 
 # % solicitado por referencia (antes de aplicar tope) – respecto del subtotal con IVA
@@ -284,32 +284,26 @@ TotalCLP = max(subtotal - DescuentoCLP, 0)
 # ------------------------------
 # Resultados
 # ------------------------------
-r1c1, r1c2, r1c3 = st.columns(3)
-with r1c1:
+fila1_c1, fila1_c2 = st.columns(2)
+with fila1_c1:
     st.metric("Subtotal (incl. IVA 19%)", formato_clp(subtotal))
-with r1c2:
-    st.metric("IVA incluido (19%)", formato_clp(iva_incluido))
-with r1c3:
-    st.metric("Descuento solicitado", formato_clp(monto_descuento_ing), delta=f"{porcentaje_solicitado:.1f}% del subtotal")
+with fila1_c2:
+    st.metric(
+        "Descuento solicitado",
+        formato_clp(monto_descuento_ing),
+        delta=f"{porcentaje_solicitado:.1f}% del subtotal"
+    )
 
-r2c1, r2c2, r2c3 = st.columns(3)
-with r2c1:
-    st.metric("Descuento aplicado", formato_clp(DescuentoCLP), delta=f"{porcentaje_aplicado:.1f}% del subtotal")
-with r2c2:
-    st.empty()
-with r2c3:
+fila2_c1, fila2_c2 = st.columns(2)
+with fila2_c1:
+    st.metric(
+        "Descuento aplicado",
+        formato_clp(DescuentoCLP),
+        delta=f"{porcentaje_aplicado:.1f}% del subtotal"
+    )
+with fila2_c2:
     st.metric("Total a pagar (incl. IVA)", formato_clp(TotalCLP))
 
-st.divider()
-st.subheader("Detalle")
-st.write(
-    f"Precio unitario: **{precio_uf:.2f} UF** → **{formato_clp(precio_unitario_clp_neto)}** (neto) | "
-    f"Cantidad: **{int(cantidad)}** | IVA incluido: **{formato_clp(iva_incluido)}**"
-)
-st.write(
-    f"Nivel: **{nivel}** · Tope permitido sobre subtotal (incl. IVA): **{int(max_desc*100)}%** "
-    f"{'(Flash activo)' if (activar_flash and is_manager) or flash_active() else ''}"
-)
 
 # ------------------------------
 # Opcional: redondeo y exportación
@@ -340,13 +334,3 @@ st.caption(
     "Las entradas son abiertas: puedes escribir con coma/punto y miles. "
     "La UF se precarga desde la API pero puedes modificarla."
 )
-
-
-
-
-
-
-
-
-
-
